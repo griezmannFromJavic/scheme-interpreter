@@ -141,7 +141,7 @@ void env_define(Env* env, const char* sym, Value* val) {
 
 Value* env_lookup(Env* env, const char* sym) {
 	for(Env* e = env->next; e; e = e->next)
-		if(strcmp(e->sym, sym) == 0)
+		if(strcmp(e->sym,sym)==0)
 			return e->val;
 	if(env->parent)
 		return env_lookup(env->parent, sym);
@@ -152,28 +152,45 @@ Value* env_lookup(Env* env, const char* sym) {
 
 // Simple tokenizer: returns next token in buffer (caller frees token)
 char *next_token(char **s) {
-	char *p = *s;
-	while (*p && isspace((unsigned char)*p)) p++;
-	if (!*p)
-		return NULL;
-	if (*p == '(' || *p == ')' || *p == '\'') {
-		char *t = smalloc(2);
-		t[0] = *p;
-		t[1] = '\0';
-		p++;
-		*s = p;
-		return t;
-	}
-	char *start = p;
-	while (*p && !isspace((unsigned char)*p) && *p!='(' && *p!=')')
-		p++;
-	int len = p - start;
-	char *t = smalloc(len + 1);
-	memcpy(t, start, len);
-	t[len] = '\0';
-	*s = p;
-	return t;
+    char *p = *s;
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (!*p)
+        return NULL;
+
+    // parentheses and quote
+    if (*p == '(' || *p == ')' || *p == '\'') {
+        char *t = smalloc(2);
+        t[0] = *p;
+        t[1] = '\0';
+        p++;
+        *s = p;
+        return t;
+    }
+
+    // handle #t and #f explicitly
+    if (*p == '#' && (p[1] == 't' || p[1] == 'f')) {
+        char *t = smalloc(3);
+        t[0] = '#';
+        t[1] = p[1];
+        t[2] = '\0';
+        p += 2;
+        *s = p;
+        return t;
+    }
+
+    // normal symbol/number
+    char *start = p;
+    while (*p && !isspace((unsigned char)*p) && *p!='(' && *p!=')')
+        p++;
+    int len = p - start;
+    char *t = smalloc(len + 1);
+    memcpy(t, start, len);
+    t[len] = '\0';
+    *s = p;
+    return t;
 }
+
+
 
 // Forward
 Value* read_from_tokens(char **s);
@@ -224,6 +241,14 @@ Value* read_from_tokens(char **s) {
 		return mk_cons(mk_symbol("quote"), mk_cons(quoted, mk_nil()));
 	}
 	// number?
+	if (strcmp(tok, "#t") == 0) {
+        free(tok);
+        return mk_symbol("#t");
+    }
+    if (strcmp(tok, "#f") == 0) {
+        free(tok);
+        return mk_nil();
+    }
 	if (is_number_token(tok)) {
 		double x = atof(tok);
 		free(tok);
@@ -299,8 +324,8 @@ Value* list_n (Value** arr, int n) {
 	return r;
 }
 int list_length (Value* v) {
-	int i = 0;
-	while (v->type == T_CONS) {
+	int i=0;
+	while (v->type==T_CONS) {
 		i++;
 		v = v->v.cons.cdr;
 	}
@@ -323,7 +348,7 @@ Value* eval_list(Value* list, Env* env) {
 }
 
 Value* apply(Value* proc, Value* args, Env* env) {
-	if (proc->type != T_PROC) {
+	if (proc->type!=T_PROC) {
 		printf("Attempt to apply non-procedure\n");
 		return mk_nil();
 	}
@@ -334,8 +359,8 @@ Value* apply(Value* proc, Value* args, Env* env) {
 	// bind params
 	Value* params = proc->v.proc.params;
 	Value* cur = args;
-	while (params->type == T_CONS) {
-		if(cur->type != T_CONS) {
+	while (params->type==T_CONS) {
+		if(cur->type!=T_CONS) {
 			printf("wrong number of args\n");
 			return mk_nil();
 		}
@@ -415,6 +440,10 @@ Value* eval(Value* expr, Env* env) {
 }
 
 /* --- Primitives ----------------------------------------------------------*/
+Value* prim_nullp(Value* args, Env* env) {
+    Value* v = args->v.cons.car;   // take first argument
+    return is_nil(v) ? mk_symbol("#t") : mk_nil();
+}
 
 Value* prim_arith(Value* args, Env* env, char op) {
 	if (is_nil(args))
@@ -537,6 +566,7 @@ Env* make_global() {
 	env_define(g, "list", mk_prim(prim_list));
 	env_define(g, "display", mk_prim(prim_display));
 	env_define(g, "eval", mk_prim(prim_eval));
+	env_define(g, "null?", mk_prim(prim_nullp));
 	// add #t symbol to represent true as non-nil
 	env_define(g, "#t", mk_symbol("#t"));
 	return g;
@@ -570,11 +600,12 @@ int main(void) {
         if (feof(stdin))
             break;  // Ctrl-D exits
 
-		Value *expr = parse(buf);
-		Value *result = eval(expr, global_env);
-		print_val(result);
+        Value *expr = parse(buf);
+        Value *result = eval(expr, global_env);
+        print_val(result);
         printf("\n");
     }
 
     return 0;
 }
+

@@ -592,7 +592,7 @@ int main(void) {
                 if (*p == '(') open++;
                 else if (*p == ')') close++;
             }
-            if (open > 0 && open == close)
+            if ((open == 0 && strlen(buf) > 0) || (open > 0 && open == close))
                 break;  // complete expression
             printf("... ");  // continuation prompt
         }
@@ -608,4 +608,3 @@ int main(void) {
 
     return 0;
 }
-

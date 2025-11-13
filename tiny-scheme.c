@@ -231,11 +231,13 @@ Value* read_from_tokens(char **s) {
 		free(tok);
 		return mk_nil();
 	}
+	/* removed
 	if(strcmp(tok, "'") == 0) {
 		free(tok);
 		Value* quoted = read_from_tokens(s);
 		return mk_cons(mk_symbol("quote"), mk_cons(quoted, mk_nil()));
 	}
+	*/
 	// number?
 	if (strcmp(tok, "#t") == 0) {
         free(tok);

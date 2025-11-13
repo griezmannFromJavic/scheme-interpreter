@@ -538,6 +538,42 @@ Value* prim_eval(Value* args, Env* env) {
 	return eval(form, env);
 }
 
+Value* prim_load(Value* args, Env* env) {
+    Value* arg = args->v.cons.car;
+    if (arg->type != T_SYMBOL) {
+        printf("load: argument must be a string-like symbol (filename)\n");
+        return mk_nil();
+    }
+
+    const char* filename = arg->v.sym;
+    FILE* f = fopen(filename, "r");
+    if (!f) {
+        perror("load: cannot open file");
+        return mk_nil();
+    }
+
+    // Read the entire file into a buffer
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    rewind(f);
+    char* buf = smalloc(len + 1);
+    fread(buf, 1, len, f);
+    buf[len] = '\0';
+    fclose(f);
+
+    // Parse and evaluate expressions until EOF
+    char* p = buf;
+    Value* last = mk_nil();
+    while (1) {
+        Value* expr = read_from_tokens(&p);
+        if (!expr) break;
+        last = eval(expr, env);
+    }
+
+    free(buf);
+    return last;  // return result of last expression
+}
+
 /* --- Bootstrap global env -----------------------------------------------*/
 
 Env* make_global() {
@@ -556,8 +592,9 @@ Env* make_global() {
 	env_define(g, "display", mk_prim(prim_display));
 	env_define(g, "eval", mk_prim(prim_eval));
 	env_define(g, "null?", mk_prim(prim_nullp));
-	// add #t symbol to represent true as non-nil
 	env_define(g, "#t", mk_symbol("#t"));
+	env_define(g, "load", mk_prim(prim_load));
+
 	return g;
 }
 

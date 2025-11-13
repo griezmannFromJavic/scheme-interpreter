@@ -1,12 +1,6 @@
-/* tiny_scheme_no_begin.c
+/*
  * Minimal Scheme-like interpreter in C.
- * - Special forms: quote, if, define, lambda
- * - Primitives: + - * / = < > cons car cdr list display eval
- *
  * Compile: gcc -std=c99 -O2 -o tiny_scheme tiny_scheme.c
- * Run: ./tiny_scheme
- *
- * This is small, educational, and uses malloc without GC. Use for experimentation.
  */
 
 #include <stdio.h>

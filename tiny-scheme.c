@@ -154,6 +154,17 @@ Value* env_lookup(Env* env, const char* sym) {
 // Simple tokenizer: returns next token in buffer (caller frees token)
 char *next_token(char **s) {
     char *p = *s;
+    // skip whitespace and comments
+    while (*p) {
+        if (isspace((unsigned char)*p)) {
+            p++;
+        } else if (*p == ';') {
+            // skip comment until end of line
+            while (*p && *p != '\n') p++;
+        } else {
+            break; // found something that's not whitespace or comment
+        }
+    }
     while (*p && isspace((unsigned char)*p)) p++;
     if (!*p)
         return NULL;

@@ -677,21 +677,42 @@ int main(void) {
     while (1) {
         printf("scheme> ");
         buf[0] = '\0';
-        int open = 0, close = 0;
+        int open_count = 0;
 
         while (fgets(line, sizeof line, stdin)) {
             strcat(buf, line);
+
             for (char *p = line; *p; p++) {
-                if (*p == '(') open++;
-                else if (*p == ')') close++;
+                if (*p == '(') open_count++;
+                else if (*p == ')') {
+                    open_count--;
+                    if (open_count < 0) {
+                        printf("Syntax error: unexpected ')'\n");
+                        buf[0] = '\0';  // reset buffer
+                        open_count = 0;
+                        break;
+                    }
+                }
+                // optional: handle comments starting with ';'
+                else if (*p == ';') {
+                    // terminate line at comment
+                    *p = '\0';
+                    break;
+                }
             }
-            if ((open == 0 && strlen(buf) > 0) || (open > 0 && open == close))
+
+            if (open_count == 0 && strlen(buf) > 0)
                 break;  // complete expression
-            printf("... ");  // continuation prompt
+
+            if (open_count > 0)
+                printf("... ");  // continuation prompt
         }
 
         if (feof(stdin))
             break;  // Ctrl-D exits
+
+        if (strlen(buf) == 0)
+            continue;  // skip empty/invalid input
 
         Value *expr = parse(buf);
         Value *result = eval(expr, global_env);

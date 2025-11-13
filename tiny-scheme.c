@@ -541,7 +541,7 @@ Value* prim_eval(Value* args, Env* env) {
 Value* prim_load(Value* args, Env* env) {
     Value* arg = args->v.cons.car;
     if (arg->type != T_SYMBOL) {
-        printf("load: argument must be a string-like symbol (filename)\n");
+        printf("load: expected symbol as filename (e.g. (load example.scm))\n");
         return mk_nil();
     }
 
@@ -552,7 +552,7 @@ Value* prim_load(Value* args, Env* env) {
         return mk_nil();
     }
 
-    // Read the entire file into a buffer
+    // Read entire file into a buffer
     fseek(f, 0, SEEK_END);
     long len = ftell(f);
     rewind(f);
@@ -561,7 +561,7 @@ Value* prim_load(Value* args, Env* env) {
     buf[len] = '\0';
     fclose(f);
 
-    // Parse and evaluate expressions until EOF
+    // Evaluate all expressions in the file sequentially
     char* p = buf;
     Value* last = mk_nil();
     while (1) {
@@ -571,8 +571,9 @@ Value* prim_load(Value* args, Env* env) {
     }
 
     free(buf);
-    return last;  // return result of last expression
+    return last;  // return last evaluated expression
 }
+
 
 /* --- Bootstrap global env -----------------------------------------------*/
 

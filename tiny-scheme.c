@@ -10,7 +10,7 @@
 
 /* --- Value representation --------------------------------------------------*/
 
-typedef enum {T_NIL, T_NUMBER, T_SYMBOL, T_CONS, T_PROC} Type;
+typedef enum {T_NIL, T_NUMBER, T_SYMBOL, T_STRING, T_CONS, T_PROC} Type;
 
 typedef struct Value Value;
 typedef struct Env Env;
@@ -48,6 +48,7 @@ struct Env {
 Value* mk_nil();
 Value* mk_number(double x);
 Value* mk_symbol(const char *s);
+Value* mk_string(const char *s);
 Value* mk_cons(Value* a, Value* d);
 Value* mk_proc(Value* params, Value* body, Env* env);
 Value* mk_prim(PrimFn f);
@@ -87,6 +88,12 @@ Value* mk_symbol(const char *s) {
 	v->type = T_SYMBOL;
 	v->v.sym = sdup(s);
 	return v;
+}
+Value* mk_string(const char *s) {
+    Value* v = smalloc(sizeof(Value));
+    v->type = T_STRING;
+    v->v.sym = sdup(s);
+    return v;
 }
 Value* mk_cons(Value* a, Value* d) {
 	Value* v = smalloc(sizeof(Value));
@@ -171,6 +178,25 @@ char *next_token(char **s) {
         *s = p;
         return t;
     }
+    
+    if (*p == '"') {
+        p++;  // skip opening quote
+        char *start = p;
+        while (*p && *p != '"') p++;
+        int len = p - start;
+        char *t = smalloc(len + 1);
+        memcpy(t, start, len);
+        t[len] = '\0';
+        if (*p == '"') p++;  // skip closing quote
+        *s = p;
+        // return token with quotes removed
+        // mark somehow (we'll treat later as string)
+        char *tok = smalloc(len + 3);
+        sprintf(tok, "\"%s\"", t);
+        free(t);
+        return tok;
+    }
+
 
     // normal symbol/number
     char *start = p;
@@ -238,6 +264,12 @@ Value* read_from_tokens(char **s) {
         free(tok);
         return mk_nil();
     }
+    if (tok[0] == '"' && tok[strlen(tok)-1] == '"') {
+        tok[strlen(tok)-1] = '\0';
+        Value* str = mk_string(tok + 1);  // skip leading quote
+        free(tok);
+        return str;
+    }
 	if (is_number_token(tok)) {
 		double x = atof(tok);
 		free(tok);
@@ -276,6 +308,9 @@ void print_val(Value* v) {
 	case T_SYMBOL:
 		printf("%s", v->v.sym);
 		break;
+	case T_STRING:
+        printf("\"%s\"", v->v.sym);
+        break;
 	case T_CONS: {
 		printf("(");
 		Value* cur = v;
@@ -328,7 +363,7 @@ Value* list_ref (Value* v, int idx) {
 
 /* --- Eval / Apply --------------------------------------------------------*/
 
-Value* eval (Value* expr, Env* env);
+Value* eval(Value* expr, Env* env);
 Value* eval_list(Value* list, Env* env) {
 	if (is_nil(list))
 		return mk_nil();
@@ -378,6 +413,8 @@ Value* eval(Value* expr, Env* env) {
 		return expr;
 	case T_NUMBER:
 		return expr;
+	case T_STRING:
+        return expr;
 	case T_SYMBOL: {
 		Value* val = env_lookup(env, expr->v.sym);
 		if (!val) {
@@ -539,9 +576,14 @@ Value* prim_eval(Value* args, Env* env) {
 }
 
 Value* prim_load(Value* args, Env* env) {
+    if (is_nil(args)) {
+        printf("load: missing filename\n");
+        return mk_nil();
+    }
+
     Value* arg = args->v.cons.car;
-    if (arg->type != T_SYMBOL) {
-        printf("load: expected symbol as filename (e.g. (load example.scm))\n");
+    if (arg->type != T_STRING) {
+        printf("load: expected string, e.g. (load \"example.scm\")\n");
         return mk_nil();
     }
 
@@ -552,16 +594,15 @@ Value* prim_load(Value* args, Env* env) {
         return mk_nil();
     }
 
-    // Read entire file into a buffer
     fseek(f, 0, SEEK_END);
     long len = ftell(f);
     rewind(f);
+
     char* buf = smalloc(len + 1);
     fread(buf, 1, len, f);
     buf[len] = '\0';
     fclose(f);
 
-    // Evaluate all expressions in the file sequentially
     char* p = buf;
     Value* last = mk_nil();
     while (1) {
@@ -571,8 +612,10 @@ Value* prim_load(Value* args, Env* env) {
     }
 
     free(buf);
-    return last;  // return last evaluated expression
+    return last;  // result of last evaluated form
 }
+
+
 
 
 /* --- Bootstrap global env -----------------------------------------------*/

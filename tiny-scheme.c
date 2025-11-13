@@ -152,7 +152,9 @@ char *next_token(char **s) {
         return NULL;
 
     // parentheses and quote
-    if (*p == '(' || *p == ')' || *p == '\'') {
+    // if (*p == '(' || *p == ')' || *p == '\'') {
+	// parentheses without quote
+	if (*p == '(' || *p == ')') {
         char *t = smalloc(2);
         t[0] = *p;
         t[1] = '\0';

@@ -406,7 +406,7 @@ int is_symbol(Value* v, const char* s) {
 }
 
 Value* eval(Value* expr, Env* env) {
-	if (expr==NULL)
+	if (expr == NULL)
 		return mk_nil();
 	switch(expr->type) {
 	case T_NIL:
@@ -437,6 +437,18 @@ Value* eval(Value* expr, Env* env) {
 			int cond = !(test->type==T_NIL);
 			return eval(cond ? conseq : alt, env);
 		}
+		if (is_symbol(op, "cond")) {
+            Value* clauses = args;
+            while (!is_nil(clauses)) {
+                Value* clause = clauses->v.cons.car;
+                Value* test = clause->v.cons.car;
+                Value* expr = clause->v.cons.cdr->v.cons.car;
+                if (is_symbol(test, "else") || eval(test, env)->type != T_NIL)
+                    return eval(expr, env);
+                clauses = clauses->v.cons.cdr;
+            }
+            return mk_nil();  // no clause matched
+        }
 		if (is_symbol(op, "define")) {
 			Value* sym = args->v.cons.car;
 			Value* val_expr = args->v.cons.cdr->v.cons.car;
@@ -488,11 +500,11 @@ Value* prim_arith(Value* args, Env* env, char op) {
 		} else {
 			if (op =='+')
 				acc += a->v.number;
-			if (op=='-')
+			if (op == '-')
 				acc -= a->v.number;
-			if (op=='*')
+			if (op == '*')
 				acc *= a->v.number;
-			if(op=='/')
+			if(op == '/')
 				acc /= a->v.number;
 		}
 		args = args->v.cons.cdr;

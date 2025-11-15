@@ -1,7 +1,4 @@
-/*
- * Minimal Scheme-like interpreter in C.
- * Compile: gcc -std=c99 -O2 -o tiny_scheme tiny_scheme.c
- */
+// Compile: gcc -std=c99 -O2 -o sema sema.c
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -189,7 +186,7 @@ char *next_token(char **s) {
         *s = p;
         return t;
     }
-    
+
     if (*p == '"') {
         p++;  // skip opening quote
         char *start = p;

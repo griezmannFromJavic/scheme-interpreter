@@ -29,5 +29,5 @@
 ; boolean operations
 (define not (lambda (x) (if (null? x) #t #f)))
 (define and2 (lambda (a b) (if a b #f)))
-(define or2 
+(define or2
     (lambda (a b) (if a #t b)))

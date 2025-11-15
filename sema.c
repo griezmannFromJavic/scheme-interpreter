@@ -1,9 +1,12 @@
-// Compile: gcc -std=c99 -O2 -o sema sema.c
+// Compile:
+// gcc -std=c99 -O2 -o sema sema.c -lreadline
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 /* --- Value representation --------------------------------------------------*/
 
@@ -667,49 +670,58 @@ Env* make_global() {
 int main(void) {
     Env *global_env = make_global();
     char buf[4096];
-    char line[512];
 
-    printf("tiny-scheme interpreter Ctrl-D to exit.\n");
+    printf("Minimal Scheme interpreter, Ctrl-D to exit.\n");
 
     while (1) {
-        printf("scheme> ");
         buf[0] = '\0';
         int open_count = 0;
+        char *line = NULL;
 
-        while (fgets(line, sizeof line, stdin)) {
-            strcat(buf, line);
+        while (1) {
+            if (open_count == 0)
+                line = readline("scheme> ");
+            else
+                line = readline("... ");  // continuation prompt
 
+            if (!line) {  // Ctrl-D
+                printf("\n");
+                goto cleanup;
+            }
+
+            // handle empty input
+            if (*line == '\0') {
+                free(line);
+                continue;
+            }
+
+            // handle comments starting with ';'
             for (char *p = line; *p; p++) {
-                if (*p == '(') open_count++;
-                else if (*p == ')') {
-                    open_count--;
-                    if (open_count < 0) {
-                        printf("Syntax error: unexpected ')'\n");
-                        buf[0] = '\0';  // reset buffer
-                        open_count = 0;
-                        break;
-                    }
-                }
-                // optional: handle comments starting with ';'
-                else if (*p == ';') {
-                    // terminate line at comment
+                if (*p == ';') {
                     *p = '\0';
                     break;
                 }
             }
 
+            strcat(buf, line);
+            strcat(buf, "\n");
+
+            // count parentheses
+            for (char *p = line; *p; p++) {
+                if (*p == '(') open_count++;
+                else if (*p == ')') open_count--;
+            }
+
+            free(line);
+
             if (open_count == 0 && strlen(buf) > 0)
                 break;  // complete expression
-
-            if (open_count > 0)
-                printf("... ");  // continuation prompt
         }
 
-        if (feof(stdin))
-            break;  // Ctrl-D exits
-
         if (strlen(buf) == 0)
-            continue;  // skip empty/invalid input
+            continue;
+
+        add_history(buf);  // add command to history
 
         Value *expr = parse(buf);
         Value *result = eval(expr, global_env);
@@ -717,5 +729,6 @@ int main(void) {
         printf("\n");
     }
 
+cleanup:
     return 0;
 }

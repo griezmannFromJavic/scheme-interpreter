@@ -416,6 +416,100 @@ int is_symbol(Value* v, const char* s) {
 	return v && v->type == T_SYMBOL && strcmp(v->v.sym,s) == 0;
 }
 
+/* // POTENTIAL TAIL CALL OPTIMIZER FOR eval()
+Value* eval(Value* expr, Env* env) {
+    while (1) {  // Main eval loop replaces recursion for TCO
+        if (!expr)
+            return mk_nil();
+
+        switch (expr->type) {
+        case T_NIL:
+        case T_NUMBER:
+        case T_STRING:
+        case T_PROC:
+            return expr;
+
+        case T_SYMBOL: {
+            Value* val = env_lookup(env, expr->v.sym);
+            if (!val) {
+                printf("Unbound symbol: %s\n", expr->v.sym);
+                return mk_nil();
+            }
+            return val;
+        }
+
+        case T_CONS: {
+            Value* op = expr->v.cons.car;
+            Value* args = expr->v.cons.cdr;
+
+            // --- Special forms ---
+            if (is_symbol(op, "quote")) {
+                return args->v.cons.car;
+            }
+
+            if (is_symbol(op, "if")) {
+                Value* test = eval(args->v.cons.car, env);
+                Value* conseq = args->v.cons.cdr->v.cons.car;
+                Value* alt = args->v.cons.cdr->v.cons.cdr->v.cons.car;
+                expr = (test->type != T_NIL) ? conseq : alt;  // Tail call
+                continue;
+            }
+
+            if (is_symbol(op, "define")) {
+                Value* sym = args->v.cons.car;
+                Value* val_expr = args->v.cons.cdr->v.cons.car;
+                Value* val = eval(val_expr, env);
+                env_define(env, sym->v.sym, val);
+                return sym;
+            }
+
+            if (is_symbol(op, "lambda")) {
+                Value* params = args->v.cons.car;
+                Value* body = args->v.cons.cdr->v.cons.car;
+                return mk_proc(params, body, env);
+            }
+
+            // --- Function call ---
+            Value* proc = eval(op, env);
+            if (!proc || proc->type != T_PROC) {
+                printf("Attempt to call non-procedure\n");
+                return mk_nil();
+            }
+
+            // --- Primitive ---
+            if (proc->v.proc.is_primitive) {
+                Value* evaled_args = eval_list(args, env);
+                return proc->v.proc.prim(evaled_args, env);
+            }
+
+            // --- User-defined lambda: prepare new env ---
+            Env* newenv = env_new(proc->v.proc.env);
+            Value* params = proc->v.proc.params;
+            Value* cur = args;
+
+            while (params->type == T_CONS) {
+                if (!cur || cur->type != T_CONS) {
+                    printf("Wrong number of arguments\n");
+                    return mk_nil();
+                }
+                Value* arg_val = eval(cur->v.cons.car, env);  // evaluate in caller env
+                env_define(newenv, params->v.cons.car->v.sym, arg_val);
+                params = params->v.cons.cdr;
+                cur = cur->v.cons.cdr;
+            }
+
+            // Tail call: reuse eval loop for lambda body
+            expr = proc->v.proc.body;
+            env = newenv;
+            continue;
+        }
+        }
+    }
+}
+
+
+*/
+
 Value* eval(Value* expr, Env* env) {
 	if (expr == NULL)
 		return mk_nil();
